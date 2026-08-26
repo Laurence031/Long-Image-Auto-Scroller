@@ -224,7 +224,7 @@ Possible areas for future improvements include:
 
 ## Author
 
-**MICT / MICT Lyrics Prompter**
+Laurence Tambor
 
 ---
 
