@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lyrics Scroller MICT</title>
+<link rel="icon" href="MICT-MICT.ico" type="image/x-icon">
+<style>
+  :root{
+    --bg:#0b0e14;
+    --panel:#12161f;
+    --panel2:#171c28;
+    --line:#232a38;
+    --accent:#5eead4;
+    --accent2:#f472b6;
+    --text:#e6e9ef;
+    --muted:#8b93a7;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  #app{display:flex;height:100%;}
+
+  /* Sidebar /* playlist */
+  #sidebar{width:280px;min-width:280px;background:var(--panel);border-right:1px solid var(--line);
+    display:flex;flex-direction:column;}
+  .side-header{padding:16px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;}
+  .side-header h2{margin:0;font-size:15px;font-weight:600;letter-spacing:.02em;}
+  .addbtn{background:var(--accent);color:#08211d;font-size:12px;font-weight:700;padding:7px 10px;
+    border-radius:7px;cursor:pointer;white-space:nowrap;}
+  .addbtn:hover{filter:brightness(1.08);}
+  #list{flex:1;overflow-y:auto;padding:10px;}
+  .item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:99px;margin-bottom:6px;
+    border:1px solid transparent;cursor:pointer;position:relative;}
+  .item:hover{background:var(--panel2);}
+  .item.active{border-color:var(--accent);background:rgba(94,234,212,0.08);}
+  .item img{width:38px;height:38px;object-fit:cover;border-radius:6px;background:#000;flex-shrink:0;}
+  .item .meta{flex:1;min-width:0;}
+  .item .meta .name{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .item .meta .idx{font-size:10.5px;color:var(--muted);}
+  .item .actions{display:flex;gap:2px;}
+  .item .actions button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;
+    padding:3px 5px;border-radius:5px;}
+  .item .actions button:hover{color:var(--text);background:#1c2230;}
+  #list .empty{color:var(--muted);font-size:12.5px;padding:20px 8px;text-align:center;line-height:1.5;}
+  .hint{padding:10px 16px;margin:0;font-size:11px;color:var(--muted);border-top:1px solid var(--line);}
+
+  /* Main */
+  #main{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;
+    border-bottom:1px solid var(--line);}
+  #nowPlaying{font-size:14px;font-weight:600;}
+  #nowPlaying .sub{color:var(--muted);font-weight:400;font-size:12px;margin-left:8px;}
+  #connStatus{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;}
+  #connStatus .dot{width:8px;height:8px;border-radius:50%;background:#5a6272;}
+  #connStatus.connected{color:var(--accent);}
+  #connStatus.connected .dot{background:var(--accent);}
+
+  #previewWrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:24px;overflow:hidden;background:
+      radial-gradient(circle at 50% 0%, rgba(94,234,212,0.05), transparent 60%);}
+  #previewFrame{max-width:340px;width:100%;max-height:70%;border-radius:10px;overflow:hidden;
+    border:1px solid var(--line);background:#000;box-shadow:0 20px 50px rgba(0,0,0,.5);position:relative;}
+  #previewImg{width:100%;display:block;}
+  #previewEmpty{width:100%;aspect-ratio:9/16;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);font-size:13px;text-align:center;padding:20px;}
+  #progressTrack{height:4px;background:#1c2230;border-radius:99px;width:100%;max-width:340px;margin-top:14px;overflow:hidden;}
+  #progressFill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent2));
+    transition:width .15s linear;}
+
+  .controls{padding:16px 20px 20px;border-top:1px solid var(--line);background:var(--panel);}
+  .row{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+  .row:last-child{margin-bottom:0;}
+  button{font-family:inherit;}
+  .ctrlbtn{background:var(--panel2);color:var(--text);border:1px solid var(--line);padding:10px 16px;
+    border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;}
+  .ctrlbtn:hover{border-color:#3a4358;}
+  .ctrlbtn.on{background:var(--accent);color:#08211d;border-color:var(--accent);}
+  .ctrlbtn.on.up{background:var(--accent2);border-color:var(--accent2);color:#2b0e1e;}
+  .sliders{gap:22px;}
+  .sliders label{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);}
+  .sliders input[type=range]{accent-color:var(--accent);width:130px;}
+  .sliders span{color:var(--text);font-weight:600;min-width:38px;display:inline-block;}
+  .presets button{background:var(--panel2);border:1px solid var(--line);color:var(--muted);
+    font-size:11.5px;padding:5px 10px;border-radius:99px;cursor:pointer;}
+  .presets button:hover{color:var(--text);}
+  .presets button.active{color:var(--accent);border-color:var(--accent);}
+  #openOutputBtn{background:var(--accent2);color:#2b0e1e;border:none;}
+  #openOutputBtn:hover{filter:brightness(1.08);}
+  .tips{margin:12px 20px 18px;font-size:11.5px;color:var(--muted);text-align:center;line-height:1.6;}
+  .tips b{color:var(--text);}
+
+  /* playlist type badge for text slides */
+  .item .thumb-text{width:38px;height:38px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;
+    justify-content:center;font-weight:700;font-size:13px;color:#0b0e14;}
+
+  /* text-slide preview in the main preview frame */
+  #previewTextBox{display:none;width:100%;min-height:220px;max-height:100%;overflow:hidden;padding:18px 10px;
+    text-align:center;box-sizing:border-box;}
+  #previewTextBox div, #previewTextBox p{margin:0 0 10px;font-size:15px;line-height:1.3;}
+
+  /* Text slide editor modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(5,7,12,0.72);display:none;align-items:center;
+    justify-content:center;z-index:100;padding:24px;}
+  .modal-overlay.show{display:flex;}
+  .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:720px;max-width:100%;
+    max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6);}
+  .modal-header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);}
+  .modal-header input{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    padding:8px 10px;border-radius:8px;font-size:13px;}
+  .modal-header .closebtn{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px 8px;}
+  .modal-header .closebtn:hover{color:var(--text);}
+  .modal-toolbar{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line);
+    flex-wrap:wrap;background:var(--panel2);}
+  .modal-toolbar button.fmtbtn{background:#1c2230;border:1px solid var(--line);color:var(--text);
+    width:30px;height:30px;border-radius:7px;cursor:pointer;font-size:13px;}
+  .modal-toolbar button.fmtbtn:hover{border-color:#3a4358;}
+  .swatch{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid rgba(255,255,255,.25);}
+  .swatch:hover{border-color:#fff;}
+  .modal-toolbar select, .modal-toolbar input[type=color]{background:#1c2230;border:1px solid var(--line);
+    color:var(--text);border-radius:7px;padding:5px 8px;font-size:12px;cursor:pointer;}
+  .modal-toolbar .sep{width:1px;height:22px;background:var(--line);}
+  #editorArea{flex:1;overflow-y:auto;min-height:260px;padding:36px 24px;text-align:center;outline:none;
+    font-size:26px;line-height:1.35;color:#111;}
+  #editorArea div, #editorArea p{margin:0 0 14px;}
+  .modal-footer{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--line);}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="side-header">
+      <h2>Playlist</h2>
+      <div style="display:flex;gap:6px;">
+        <label class="addbtn">+ Images<input type="file" id="fileInput" accept="image/*" multiple hidden></label>
+        <button class="addbtn" id="newTextBtn" style="background:var(--accent2);color:#2b0e1e;">+ Text</button>
+      </div>
+    </div>
+    <div id="list"></div>
+    <p class="hint">Playlist stays in memory only — it resets if you reload this page.</p>
+  </aside>
+
+  <main id="main">
+    <div class="topbar">
+      <div id="nowPlaying">No image selected</div>
+      <div id="connStatus"><span class="dot"></span><span id="connText">Output: not open</span></div>
+    </div>
+
+    <div id="previewWrap">
+      <div id="previewFrame">
+        <img id="previewImg" style="display:none;">
+        <div id="previewTextBox"></div>
+        <div id="previewEmpty">Add images or a text slide to the playlist, then click one to send it to the output window.</div>
+      </div>
+      <div id="progressTrack"><div id="progressFill"></div></div>
+    </div>
+
+    <div class="controls">
+      <div class="row">
+        <button class="ctrlbtn" id="prevBtn">⏮ Prev</button>
+        <button class="ctrlbtn" id="scrollUpBtn">↑ Up</button>
+        <button class="ctrlbtn" id="stopBtn">■ Stop</button>
+        <button class="ctrlbtn" id="scrollDownBtn">↓ Down</button>
+        <button class="ctrlbtn" id="nextBtn">Next ⏭</button>
+      </div>
+      <div class="row sliders">
+        <label>Speed <input type="range" id="speedSlider" min="0.25" max="4" step="0.25" value="1"><span id="speedLabel">1.0x</span></label>
+        <label>Display Size <input type="range" id="zoomSlider" min="50" max="200" step="5" value="100"><span id="zoomLabel">100%</span></label>
+      </div>
+      <div class="row presets">
+        <button class="preset" data-zoom="75">75%</button>
+        <button class="preset active" data-zoom="100">100% · Fit</button>
+        <button class="preset" data-zoom="125">125%</button>
+        <button class="preset" data-zoom="150">150%</button>
+        <button class="preset" data-zoom="200">200%</button>
+      </div>
+      <div class="row">
+        <button class="ctrlbtn" id="openOutputBtn">🖥 Open Output Window</button>
+      </div>
+    </div>
+
+    <p class="tips">
+      Keyboard, while this control window is focused: <b>↓</b> scroll down &middot; <b>↑</b> scroll up &middot; <b>Space</b> stop &middot; <b>+ / -</b> speed.<br>
+      Drag the Output window to your second monitor / vMix source/ OBS Studio, then on that window press <b>F</b> for fullscreen. Its controls stay hidden until you move the mouse over it, so captures stay clean.
+    </p>
+  </main>
+</div>
+
+<div class="modal-overlay" id="editorModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <input type="text" id="editorName" placeholder="Slide name (e.g. Verse 1)">
+      <button class="closebtn" id="editorClose">&times;</button>
+    </div>
+    <div class="modal-toolbar">
+      <button class="fmtbtn" id="fmtBold" title="Bold"><b>B</b></button>
+      <button class="fmtbtn" id="fmtItalic" title="Italic"><i>I</i></button>
+      <div class="sep"></div>
+      <span class="swatch" data-color="#111111" style="background:#111111" title="Black"></span>
+      <span class="swatch" data-color="#a020c8" style="background:#a020c8" title="Purple"></span>
+      <span class="swatch" data-color="#1a56ff" style="background:#1a56ff" title="Blue"></span>
+      <span class="swatch" data-color="#e0245e" style="background:#e0245e" title="Red"></span>
+      <span class="swatch" data-color="#0a8a3c" style="background:#0a8a3c" title="Green"></span>
+      <input type="color" id="customColor" title="Custom color" value="#111111">
+      <div class="sep"></div>
+      <select id="bgSelect" title="Slide background">
+        <option value="sky">Sky gradient</option>
+        <option value="white">White</option>
+        <option value="black">Black</option>
+      </select>
+    </div>
+    <div id="editorArea" contenteditable="true"></div>
+    <div class="modal-footer">
+      <button class="ctrlbtn" id="editorCancel">Cancel</button>
+      <button class="ctrlbtn" id="editorSave" style="background:var(--accent2);color:#2b0e1e;border:none;">Save Slide</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  let images = [];
+  let currentIndex = -1;
+  let outputWin = null;
+  let speed = 1;
+  let zoom = 100;
+  let direction = 0;
+
+  const listEl = document.getElementById('list');
+  const fileInput = document.getElementById('fileInput');
+  const nowPlaying = document.getElementById('nowPlaying');
+  const connStatus = document.getElementById('connStatus');
+  const connText = document.getElementById('connText');
+  const previewImg = document.getElementById('previewImg');
+  const previewTextBox = document.getElementById('previewTextBox');
+  const previewEmpty = document.getElementById('previewEmpty');
+  const progressFill = document.getElementById('progressFill');
+  const speedSlider = document.getElementById('speedSlider');
+  const speedLabel = document.getElementById('speedLabel');
+  const zoomSlider = document.getElementById('zoomSlider');
+  const zoomLabel = document.getElementById('zoomLabel');
+  const scrollUpBtn = document.getElementById('scrollUpBtn');
+  const scrollDownBtn = document.getElementById('scrollDownBtn');
+  const stopBtn = document.getElementById('stopBtn');
+
+  function uid(){ return 'img_' + Math.random().toString(36).slice(2,9); }
+
+  function renderList() {
+    listEl.innerHTML = '';
+    if (images.length === 0) {
+      listEl.innerHTML = '<div class="empty">No slides added yet.<br>Click <b>+ Images</b> or <b>+ Text</b> above.</div>';
+      return;
+    }
+    images.forEach((item, index) => {
+      const div = document.createElement('div');
+      div.className = 'item' + (index === currentIndex ? ' active' : '');
+      div.onclick = () => selectSlide(index);
+
+      let thumbHtml = item.slideType === 'text'
+        ? `<div class="thumb-text" style="background:${item.bg === 'black' ? '#222' : '#e0f2fe'};color:${item.bg === 'black' ? '#fff' : '#0369a1'}">T</div>`
+        : `<img src="${item.src}">`;
+
+      div.innerHTML = `
+        ${thumbHtml}
+        <div class="meta">
+          <div class="name">${item.name}</div>
+          <div class="idx">#${index + 1} &middot; ${item.slideType || 'image'}</div>
+        </div>
+        <div class="actions">
+          <button title="Remove" onclick="event.stopPropagation(); removeSlide(${index})">&times;</button>
+        </div>
+      `;
+      listEl.appendChild(div);
+    });
+  }
+
+  function selectSlide(index) {
+    if (index < 0 || index >= images.length) return;
+    currentIndex = index;
+    const item = images[currentIndex];
+    nowPlaying.innerHTML = `${item.name} <span class="sub">(${currentIndex + 1}/${images.length})</span>`;
+    
+    previewEmpty.style.display = 'none';
+    if (item.slideType === 'text') {
+      previewImg.style.display = 'none';
+      previewTextBox.style.display = 'block';
+      previewTextBox.innerHTML = item.html;
+    } else {
+      previewTextBox.style.display = 'none';
+      previewImg.style.display = 'block';
+      previewImg.src = item.src;
+    }
+
+    sendToOutput({
+      type: 'load',
+      slideType: item.slideType || 'image',
+      src: item.src,
+      html: item.html,
+      bg: item.bg,
+      name: item.name
+    });
+    renderList();
+  }
+
+  window.removeSlide = function(index) {
+    images.splice(index, 1);
+    if (currentIndex >= images.length) currentIndex = images.length - 1;
+    if (currentIndex >= 0) selectSlide(currentIndex);
+    else {
+      nowPlaying.textContent = 'No image selected';
+      previewImg.style.display = 'none';
+      previewTextBox.style.display = 'none';
+      previewEmpty.style.display = 'flex';
+    }
+    renderList();
+  };
+
+  fileInput.onchange = (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        images.push({
+          id: uid(),
+          name: file.name,
+          src: evt.target.result,
+          slideType: 'image'
+        });
+        renderList();
+        if (currentIndex === -1) selectSlide(0);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  function sendToOutput(msg) {
+    if (outputWin && !outputWin.closed) {
+      outputWin.postMessage(msg, '*');
+    }
+  }
+
+  document.getElementById('openOutputBtn').onclick = () => {
+    outputWin = window.open('', 'LyricsOutputWindow', 'width=1000,height=600');
+    outputWin.document.open();
+    outputWin.document.write(OUTPUT_HTML);
+    outputWin.document.close();
+    connStatus.classList.add('connected');
+    connText.textContent = 'Output: Connected';
+  };
+
+  const OUTPUT_HTML = [
+'<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Lyrics Output</title><style>',
+'*{box-sizing:border-box;margin:0;padding:0;}',
+'html,body{height:100%;background:#000;overflow:hidden;font-family:-apple-system,sans-serif;}',
+'#stage{position:fixed;inset:0;overflow-y:auto;overflow-x:hidden;background:#000;scrollbar-width:none;}',
+'#stage::-webkit-scrollbar{width:0;height:0;background:transparent;}',
+'#holder{width:100vw;display:flex;justify-content:center;padding-bottom:70vh;}',
+'#outCanvas{display:block;image-rendering:auto;}',
+'#srcImg{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;top:-9999px;}',
+'#textSlide{display:none;width:92vw;max-width:1400px;margin:60px auto 70vh;padding:0 10px;',
+'text-align:center;box-sizing:border-box;font-size:42px;line-height:1.35;color:#111;}',
+'#textSlide div, #textSlide p{margin:0 0 16px;}',
+'#overlayTop{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;',
+'padding:14px 20px;background:linear-gradient(to bottom, rgba(0,0,0,.7), transparent);',
+'opacity:0;transition:opacity .35s ease;pointer-events:none;color:#fff;font-size:13px;z-index:5;}',
+'#overlayTop.show{opacity:1;}',
+'#overlayTop .name{font-weight:600;}',
+'#overlayTop .hint{color:#aab1c2;font-size:11.5px;}',
+'#overlayBottom{position:fixed;bottom:0;left:0;right:0;padding:10px 20px;',
+'background:linear-gradient(to top, rgba(0,0,0,.7), transparent);',
+'opacity:0;transition:opacity .35s ease;pointer-events:none;z-index:5;}',
+'#overlayBottom.show{opacity:1;}',
+'#track{height:3px;background:rgba(255,255,255,.15);border-radius:99px;overflow:hidden;}',
+'#fill{height:100%;width:0%;background:#5eead4;transition:width .15s linear;}',
+'#empty{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#555;',
+'font-size:14px;text-align:center;padding:20px;}',
+'</style></head><body>',
+'<div id="stage"><div id="holder"><canvas id="outCanvas" style="display:none;"></canvas></div><div id="textSlide"></div></div>',
+'<img id="srcImg">',
+'<div id="empty">Waiting for an image from the control window&hellip;</div>',
+'<div id="overlayTop"><span class="name" id="ovName"></span><span class="hint">&darr;&uarr; scroll &middot; Space stop &middot; F fullscreen</span></div>',
+'<div id="overlayBottom"><div id="track"><div id="fill"></div></div></div>',
+'<script>',
+'(function(){',
+'  var stage=document.getElementById("stage");',
+'  var holder=document.getElementById("holder");',
+'  var canvas=document.getElementById("outCanvas");',
+'  var ctx=canvas.getContext("2d");',
+'  var srcImg=document.getElementById("srcImg");',
+'  var textSlide=document.getElementById("textSlide");',
+'  var empty=document.getElementById("empty");',
+'  var ovTop=document.getElementById("overlayTop");',
+'  var ovBottom=document.getElementById("overlayBottom");',
+'  var ovName=document.getElementById("ovName");',
+'  var fill=document.getElementById("fill");',
+'  var direction=0, speed=1, zoom=100, rafId=null, lastTime=null, lastProgressSent=0;',
+'  var hasImage=false, currentType="image", baseFontSize=42;',
+'  function bgCss(bg){',
+'    if(bg==="black") return "#000000";',
+'    if(bg==="white") return "#ffffff";',
+'    return "radial-gradient(circle at 50% 10%, #ffffff 0%, #eaf7ff 45%, #bfe8ff 100%)";',
+'  }',
+'  function applyTextZoom(){',
+'    textSlide.style.fontSize = Math.round(baseFontSize * (zoom/100)) + "px";',
+'  }',
+'  function loadTextSlide(html,bg,name){',
+'    currentType = "text";',
+'    canvas.style.display = "none";',
+'    textSlide.style.display = "block";',
+'    textSlide.innerHTML = html;',
+'    stage.style.background = bgCss(bg);',
+'    textSlide.style.color = bg === "black" ? "#fff" : "#111";',
+'    empty.style.display = "none";',
+'    ovName.textContent = name || "";',
+'    applyTextZoom();',
+'    stage.scrollTop = 0;',
+'  }',
+'  function draw(){',
+'    if(!hasImage || !srcImg.naturalWidth) return;',
+'    var dpr = window.devicePixelRatio || 1;',
+'    var cssWidth = window.innerWidth * (zoom/100);',
+'    var aspect = srcImg.naturalHeight / srcImg.naturalWidth;',
+'    var cssHeight = cssWidth * aspect;',
+'    var pxWidth = Math.max(1, Math.round(cssWidth * dpr));',
+'    var pxHeight = Math.max(1, Math.round(cssHeight * dpr));',
+'    var prevScrollTop = stage.scrollTop;',
+'    var prevMax = stage.scrollHeight - stage.clientHeight;',
+'    var ratio = prevMax > 0 ? prevScrollTop / prevMax : 0;',
+'    if(canvas.width !== pxWidth || canvas.height !== pxHeight){',
+'      canvas.width = pxWidth; canvas.height = pxHeight;',
+'    }',
+'    canvas.style.width = cssWidth + "px";',
+'    canvas.style.height = cssHeight + "px";',
+'    ctx.imageSmoothingEnabled = true;',
+'    if("imageSmoothingQuality" in ctx) ctx.imageSmoothingQuality = "high";',
+'    ctx.clearRect(0,0,canvas.width,canvas.height);',
+'    ctx.drawImage(srcImg, 0, 0, canvas.width, canvas.height);',
+'    canvas.style.display = "block";',
+'    var newMax = stage.scrollHeight - stage.clientHeight;',
+'    if(newMax > 0) stage.scrollTop = ratio * newMax;',
+'  }',
+'  function loadImage(src,name){',
+'    currentType = "image";',
+'    textSlide.style.display = "none";',
+'    stage.style.background = "#000";',
+'    hasImage = false;',
+'    srcImg.onload = function(){',
+'      hasImage = true;',
+'      empty.style.display = "none";',
+'      ovName.textContent = name || "";',
+'      draw();',
+'      stage.scrollTop = 0;',
+'    };',
+'    srcImg.src = src;',
+'  }',
+'  var resizeTimer=null;',
+'  window.addEventListener("resize", function(){',
+'    clearTimeout(resizeTimer);',
+'    resizeTimer = setTimeout(function(){ if(currentType==="text") applyTextZoom(); else draw(); }, 120);',
+'  });',
+'  function step(ts){',
+'    if(lastTime===null) lastTime=ts;',
+'    var dt=(ts-lastTime)/1000; lastTime=ts;',
+'    if(direction!==0){',
+'      var delta = direction * 55 * speed * dt;',
+'      stage.scrollTop += delta;',
+'      var maxScroll = stage.scrollHeight - stage.clientHeight;',
+'      if(stage.scrollTop<=0 && direction<0){ direction=0; notifyEdge(); }',
+'      else if(stage.scrollTop>=maxScroll-1 && direction>0){ direction=0; notifyEdge(); }',
+'    }',
+'    if(ts-lastProgressSent>200){',
+'      lastProgressSent=ts;',
+'      var maxScroll2 = stage.scrollHeight - stage.clientHeight;',
+'      var pct = maxScroll2>0 ? stage.scrollTop/maxScroll2 : 0;',
+'      fill.style.width = Math.max(0,Math.min(100,pct*100))+"%";',
+'      if(window.opener) window.opener.postMessage({type:"progress", pct: pct}, "*");',
+'    }',
+'    rafId=requestAnimationFrame(step);',
+'  }',
+'  function notifyEdge(){ if(window.opener) window.opener.postMessage({type:"edge"}, "*"); }',
+'  function start(){ if(rafId===null){ lastTime=null; rafId=requestAnimationFrame(step); } }',
+'  window.addEventListener("message", function(e){',
+'    var d=e.data; if(!d||!d.type) return;',
+'    if(d.type==="load"){',
+'      if(d.slideType==="text") loadTextSlide(d.html, d.bg, d.name);',
+'      else loadImage(d.src, d.name);',
+'    }',
+'    else if(d.type==="speed"){ speed=d.value; }',
+'    else if(d.type==="zoom"){ zoom=d.value; if(currentType==="text") applyTextZoom(); else draw(); }',
+'    else if(d.type==="direction"){ direction=d.value; }',
+'    else if(d.type==="stop"){ direction=0; }',
+'  });',
+'  document.addEventListener("keydown", function(e){',
+'    if(e.repeat) return;',
+'    switch(e.key){',
+'      case "ArrowDown": e.preventDefault(); direction = direction===1?0:1; break;',
+'      case "ArrowUp": e.preventDefault(); direction = direction===-1?0:-1; break;',
+'      case " ": e.preventDefault(); direction=0; break;',
+'      case "+": case "=": speed=Math.min(4, Math.round((speed+0.25)*20)/20); break;',
+'      case "-": case "_": speed=Math.max(0.25, Math.round((speed-0.25)*20)/20); break;',
+'      case "f": case "F":',
+'        if(!document.fullscreenElement){ document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(function(){}); }',
+'        else { document.exitFullscreen && document.exitFullscreen(); }',
+'        break;',
+'    }',
+'  });',
+'  stage.addEventListener("wheel", function(){ direction=0; }, {passive:true});',
+'  var hideTimer=null;',
+'  function revealOverlay(){',
+'    ovTop.classList.add("show"); ovBottom.classList.add("show");',
+'    clearTimeout(hideTimer);',
+'    hideTimer=setTimeout(function(){ ovTop.classList.remove("show"); ovBottom.classList.remove("show"); }, 1800);',
+'  }',
+'  document.addEventListener("mousemove", revealOverlay);',
+'  document.addEventListener("touchstart", revealOverlay, {passive:true});',
+'  window.addEventListener("beforeunload", function(){',
+'    if(window.opener) window.opener.postMessage({type:"closed"}, "*");',
+'  });',
+'  start();',
+'  if(window.opener) window.opener.postMessage({type:"ready"}, "*");',
+'})();',
+'<\/script>',
+'</body></html>'
+  ].join('\n');
+
+  renderList();
+})();
+</script>
+</body>
+</html>
