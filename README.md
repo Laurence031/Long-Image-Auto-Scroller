@@ -6,7 +6,7 @@
 
 A desktop lyrics and script prompter for live production. Build lyric slides, scroll them smoothly, and send a clean output to **vMix**, **OBS** or a second screen. Slides can even be written from a **phone or another computer** on the same Wi-Fi.
 
-Created by me, **John Laurence Tambor** · MCGI Productions Southville. Built with [Electron](https://www.electronjs.org/) for Windows.
+Created by me, **John Laurence Tambor** · Built with [Electron](https://www.electronjs.org/) for Windows.
 
 > App name: **MICT Lyrics Prompter** · Version **4.0.0**
 
